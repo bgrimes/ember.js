@@ -439,13 +439,14 @@ Ember.onLoad('Ember.Handlebars', function(Handlebars) {
     routeArgs: Ember.computed(function computeLinkViewRouteArgs() {
       var resolvedParams = get(this, 'resolvedParams').slice(0),
           router = get(this, 'router'),
-          namedRoute = resolvedParams[0];
+          namedRoute = resolvedParams[0],
+          friendlyRouteNames = get(this, '_friendlyRouteNames');
 
       if (!namedRoute) { return; }
 
       Ember.assert(fmt("The attempt to link-to route '%@' failed. " +
                        "The router did not find '%@' in its possible routes: '%@'",
-                       [namedRoute, namedRoute, Ember.keys(router.router.recognizer.names).join("', '")]),
+                       [namedRoute, namedRoute, friendlyRouteNames.join("', '")]),
                        router.hasRoute(namedRoute));
 
       //normalize route name
@@ -471,6 +472,37 @@ Ember.onLoad('Ember.Handlebars', function(Handlebars) {
 
       return resolvedParams;
     }).property('resolvedParams', 'queryParams'),
+ 
+    /**
+      Computed property that returns a filtered list of route names, the 
+      implicit error and loading routes shouldn't be displayed if the 
+      routeArgs "hasRoute" assert fails. 
+ 
+      @private
+      @property
+      @return {Array} A filtered list of route names
+    */
+    _friendlyRouteNames: Ember.computed(function computeFriendlyRouteNames() {
+      var knownRouteNames = Ember.keys(get(this, 'router.router.recognizer.names')),
+          filterNames     = ['error', 'loading'];
+      // Filter out implicit definitions
+      for (var i = 0; i <= knownRouteNames.length; i++) {
+        var filterNameIndex = filterNames.indexOf(knownRouteNames[i]);
+        if (filterNameIndex >= 0) {
+          // Remove the filtered name from the both lists and move on
+          knownRouteNames.splice(i, 1);
+          // Decrement so that we don't lose our place in the iteration
+          i -= 1;
+          filterNames.splice(filterNameIndex, 1);
+          // Since we are only removing the first instance,which will ideally be the
+          // implicit declaration of the names) then we may early exit
+          if (filterNames.length === 0) {
+            return knownRouteNames;
+          }
+        }
+      }
+      return knownRouteNames;
+    }).property('router.router.recognizer.names'),
 
     queryParamsObject: null,
     queryParams: Ember.computed(function computeLinkViewQueryParams() {
